@@ -72,7 +72,7 @@ Two protocols are used throughout:
 | B | stratified 80/10/10 over the pooled records, `random_state=42` | 206,138 / 25,767 / 25,768 |
 
 Protocol B is the primary comparison, because the two official files are not a
-random split of one capture (see Table 9 of the manuscript).
+random split of one capture (the manuscript quantifies this in Section 5.14).
 
 ## Layout
 
@@ -82,9 +82,9 @@ random split of one capture (see Table 9 of the manuscript).
 | `models.py` | GCN and LSTM backbones, `LMModel` encoder, `CollaborativeModel` fusion, batched prediction |
 | `correction.py` | Decision-layer correction (temperature scaling, validation threshold, EM/BBSE prior estimation) |
 | `normal_profile.py` | Normal-only autoencoder branch (optional, used in the earlier experiments) |
-| `run_full_comparison.py` | The seven-model comparison of Table 2 |
+| `run_full_comparison.py` | The seven-model comparison of Tables 1 and 2 |
 | `run_n_sweep.py` | The 40-point sweep over the retained mode count, Fig. 4 |
-| `experiments.py` | All review experiments: `cache`, `e1`–`e6`, `e6-adv` |
+| `experiments.py` | The five-seed experiments and controls: `cache`, `e1`–`e6`, `e6-adv` |
 | `results/` | Every CSV/JSON behind the tables and figures of the manuscript |
 | `figures/` | The mode-count and eigenvalue figures, as they appear in the paper |
 | `ENVIRONMENT.md` | Machine, package versions, measured runtimes, known numerical caveats |
@@ -92,7 +92,7 @@ random split of one capture (see Table 9 of the manuscript).
 ## Running
 
 ```bash
-# Table 2 and Table 3
+# Table 1 and Table 2
 python run_full_comparison.py
 python run_full_comparison.py --protocol random
 
