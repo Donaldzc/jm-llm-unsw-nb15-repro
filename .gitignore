@@ -1,0 +1,21 @@
+# data (UNSW-NB15 is redistributed by its authors, not here)
+data/
+
+# generated caches and per-run outputs
+experiments/
+__pycache__/
+*.pyc
+*.npz
+
+# local results written by the two standalone scripts
+results_full.csv
+results_full_random.csv
+n_sweep_full.csv
+n_influence_*.png
+eigenvalues_n*.png
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

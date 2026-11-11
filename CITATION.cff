@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper and this repository."
+title: "JM-LLM: reproduction package"
+abstract: >-
+  Reproduction code and results for a Jordan-matrix and encoder collaboration
+  model for cyber threat prediction on UNSW-NB15, including the five-seed
+  comparison, the mode-guided attention ablation, the directed-spectrum
+  analysis, the false-positive cost analysis, the evasion analysis and the
+  graph and capacity controls.
+authors:
+  - family-names: Dai
+    given-names: Zicheng
+    orcid: "https://orcid.org/0009-0006-8687-3495"
+    affiliation: "School of Cyberspace Security, Huazhong University of Science and Technology"
+  - family-names: Han
+    given-names: Lansheng
+    affiliation: "School of Cyberspace Security, Huazhong University of Science and Technology"
+    email: 1998010309@hust.edu.cn
+  - family-names: Zhu
+    given-names: Dongjun
+    affiliation: "School of Cyberspace Security, Huazhong University of Science and Technology"
+  - family-names: Ye
+    given-names: Xiaohu
+    affiliation: "NSFOCUS Technologies Group Co., Ltd."
+license: MIT
+version: 1.0.0
+date-released: "2026-11-11"
+keywords:
+  - cyber threat propagation
+  - Jordan canonical form
+  - intrusion detection
+  - UNSW-NB15
+  - PyTorch

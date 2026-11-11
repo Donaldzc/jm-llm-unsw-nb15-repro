@@ -1,0 +1,3 @@
+﻿variant,n_seeds,test_acc_mean,test_acc_std,macro_f1_mean,macro_f1_std
+"JM-LLM (equal-weight fusion, no attention)",5,0.9342,0.0013,0.9288,0.0014
+JM-LLM + mode-guided attention,5,0.9339,0.0014,0.9291,0.0015

@@ -1,0 +1,90 @@
+{
+  "n_nodes": 257673,
+  "n_replica": 1500,
+  "n_modes": 26,
+  "non_normality_eta": 2.085144753994178,
+  "max_abs_imag": 0.1769093243559212,
+  "n_distinct_eigenvalues": 1193,
+  "n_repeated_clusters": 9,
+  "max_algebraic_multiplicity": 241,
+  "max_algebraic_multiplicity_nonzero": 56,
+  "unit_eigenvalue_multiplicity": 56,
+  "unit_eigenvalue_geometric": 56,
+  "n_eigenvalues_above_0_99": 68,
+  "top_spectrum": [
+    {
+      "modulus": 1.0,
+      "real": 1.0,
+      "imag": 0.0,
+      "algebraic": 56
+    },
+    {
+      "modulus": 1.0,
+      "real": -1.0,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.999431,
+      "real": 0.999431,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.999254,
+      "real": 0.999254,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.999254,
+      "real": -0.999254,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.99859,
+      "real": 0.99859,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.997962,
+      "real": 0.997962,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.997962,
+      "real": -0.997962,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.997216,
+      "real": 0.997216,
+      "imag": 0.0,
+      "algebraic": 1
+    },
+    {
+      "modulus": 0.995337,
+      "real": 0.995337,
+      "imag": 0.0,
+      "algebraic": 1
+    }
+  ],
+  "n_defective_clusters": 0,
+  "max_algebraic_minus_geometric": 0,
+  "leading_block_order_above_one": 0,
+  "n_zero_eigenvalues": 237,
+  "min_eigenvalue_gap": 0.0,
+  "n_modes_near_unit_circle": 60,
+  "directed_diffusion_test_acc": 0.6496259048729535,
+  "directed_diffusion_macro_f1": 0.6478006603197082,
+  "directed_threshold": 0.05,
+  "directed_acc_at_0.5": 0.6036777923529126,
+  "jm_symmetric_test_acc": 0.48559490841956954,
+  "jm_symmetric_macro_f1": 0.48475303898230615,
+  "jm_symmetric_threshold": 0.05,
+  "jm_symmetric_acc_at_0.5": 0.44189379585094496
+}

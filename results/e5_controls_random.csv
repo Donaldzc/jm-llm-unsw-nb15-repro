@@ -1,0 +1,6 @@
+﻿variant,n_seeds,test_acc_mean,test_acc_std,macro_f1_mean,macro_f1_std
+"JM-GNN, kNN graph",5,0.8953,0.003,0.8874,0.0029
+"JM-GNN, shuffled graph",5,0.6733,0.0638,0.6706,0.0617
+"JM-LLM, equal-weight fusion",5,0.9343,0.0013,0.9288,0.0014
+"MLP, width 128 (33346 params)",5,0.9337,0.0015,0.9292,0.0015
+"MLP, width 208 (62506 params)",5,0.9326,0.0025,0.9279,0.0027

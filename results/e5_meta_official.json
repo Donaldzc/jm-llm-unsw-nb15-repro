@@ -1,0 +1,8 @@
+{
+  "plain_parameters": 33346,
+  "attention_parameters": 62466,
+  "mlp_plain_width": 128,
+  "mlp_plain_parameters": 33346,
+  "mlp_attn_width": 208,
+  "mlp_attn_parameters": 62506
+}
