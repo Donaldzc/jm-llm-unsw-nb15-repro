@@ -1,0 +1,4 @@
+﻿comparison,mean_diff_pp,sd_diff_pp,t_stat,p_value,wins,n_seeds
+shuffled minus kNN graph,-18.5831,4.5251,-9.1828,0.0008,0,5
+plain-capacity MLP minus JM-LLM,-0.4793,0.6709,-1.5973,0.1854,1,5
+attention-capacity MLP minus JM-LLM,-0.2664,0.4253,-1.4006,0.2339,2,5

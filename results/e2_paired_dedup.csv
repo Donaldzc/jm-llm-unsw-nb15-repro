@@ -1,0 +1,6 @@
+﻿comparison,mean_diff,sd_diff,se_5seeds,t_stat,wins,n_seeds
+JM-LLM minus LSTM,0.0039,0.0051,0.0023,1.7152,4,5
+JM-LLM minus Random-Forest-GNN,0.0223,0.0016,0.0007,31.8157,5,5
+JM-LLM minus JM-LSTM,0.0087,0.0043,0.0019,4.4925,5,5
+LSTM minus JM-LSTM,0.0049,0.0068,0.003,1.5964,4,5
+Random-Forest-GNN minus JM-GNN,0.0335,0.0223,0.01,3.3707,5,5

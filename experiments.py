@@ -98,6 +98,30 @@ def load_with_categories(protocol="official"):
             m = np.zeros(len(y), dtype=bool)
             m[part] = True
             full[name] = m
+    elif protocol == "dedup":
+        from sklearn.model_selection import train_test_split
+        uniq, first, inv = np.unique(X_all, axis=0, return_index=True,
+                                     return_inverse=True)
+        n_groups = len(first)
+        cnt = np.bincount(inv, minlength=n_groups)
+        pos = np.bincount(inv, weights=y, minlength=n_groups)
+        # an exact duplicate group is kept only if all its members share a
+        # label; groups with conflicting labels are dropped as ambiguous.
+        keep_group = ~((pos > 0) & (pos < cnt))
+        keep_idx = np.sort(first[keep_group])
+        X_all, y = X_all[keep_idx], y[keep_idx]
+        attack_cat = attack_cat[keep_idx]
+        idx = np.arange(len(y))
+        tr_i, rest = train_test_split(idx, test_size=0.2, random_state=42,
+                                      stratify=y)
+        va_i, te_i = train_test_split(rest, test_size=0.5, random_state=42,
+                                      stratify=y[rest])
+        full = {}
+        for name, part in [("train", tr_i), ("val", va_i), ("test", te_i)]:
+            m = np.zeros(len(y), dtype=bool)
+            m[part] = True
+            full[name] = m
+        n_tr = 0
     else:
         raise ValueError(protocol)
     return X_all, y, attack_cat, full, n_tr
@@ -1097,11 +1121,69 @@ def run_e6_adv(protocol="official", seed=42,
     return out
 
 
+def run_dedup_stats():
+    """Statistics for protocol C and the duplicate coverage of A and B."""
+    X_all, y, cat, masks_a, n_tr = load_with_categories("official")
+    _, first, inv = np.unique(X_all, axis=0, return_index=True,
+                              return_inverse=True)
+    n_groups = len(first)
+    cnt = np.bincount(inv, minlength=n_groups)
+    pos = np.bincount(inv, weights=y, minlength=n_groups)
+    conflict = (pos > 0) & (pos < cnt)
+    keep_group = ~conflict
+    keep_idx = first[keep_group]
+
+    def coverage(masks):
+        tr_groups = np.unique(inv[masks["train"]])
+        te_groups = inv[masks["test"]]
+        hit = np.isin(te_groups, tr_groups)
+        return int(hit.sum()), float(hit.mean()), int(masks["test"].sum())
+
+    _, _, _, masks_b, _ = load_with_categories("random")
+    _, yc, _, masks_c, _ = load_with_categories("dedup")
+    cov_a = coverage(masks_a)
+    cov_b = coverage(masks_b)
+
+    def dist(vals):
+        u, c = np.unique(vals, return_counts=True)
+        return {str(k): int(v) for k, v in sorted(zip(u, c), key=lambda t: -t[1])}
+
+    conflict_ids = np.where(conflict)[0]
+    stats = {
+        "n_total": int(len(y)),
+        "n_unique_feature_vectors": int(n_groups),
+        "n_duplicate_rows": int(len(y) - n_groups),
+        "n_conflict_groups": int(conflict.sum()),
+        "n_conflict_rows": int(cnt[conflict].sum()) if conflict.any() else 0,
+        "n_conflict_rows_in_train_file": int(
+            cnt[conflict][np.isin(conflict_ids, inv[:n_tr])].sum()),
+        "n_kept": int(len(keep_idx)),
+        "kept_class_distribution": dist(y[keep_idx]),
+        "kept_attack_cat_distribution": dist(cat[keep_idx]),
+        "protocol_a_test_rows_in_train_groups": cov_a[0],
+        "protocol_a_test_coverage": cov_a[1],
+        "protocol_a_test_size": cov_a[2],
+        "protocol_b_test_rows_in_train_groups": cov_b[0],
+        "protocol_b_test_coverage": cov_b[1],
+        "protocol_b_test_size": cov_b[2],
+        "protocol_c_size": int(len(yc)),
+        "protocol_c_split": {k: int(v.sum()) for k, v in masks_c.items()},
+        "protocol_c_class_distribution": dist(yc),
+        # by construction the deduplicated corpus gives every kept vector a
+        # single group, so no test row can share its vector with a train row.
+        "protocol_c_test_rows_in_train_groups": 0,
+    }
+    with open(OUT / "dedup_stats.json", "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2)
+    print(json.dumps(stats, indent=2), flush=True)
+    return stats
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["cache", "e1", "e1-jm", "e2", "e3",
-                                        "e4", "e5", "e6", "e6-adv"])
-    ap.add_argument("--protocol", choices=["official", "random"],
+                                        "e4", "e5", "e6", "e6-adv", "dedup"])
+    ap.add_argument("--protocol", choices=["official", "random", "dedup"],
                     default="official")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--seeds", type=int, nargs="*", default=[1, 2, 3, 4, 5])
@@ -1127,6 +1209,8 @@ def main():
         run_e6_cost(args.protocol, args.seeds)
     elif args.command == "e6-adv":
         run_e6_adv(args.protocol, args.seed)
+    elif args.command == "dedup":
+        run_dedup_stats()
 
 
 if __name__ == "__main__":

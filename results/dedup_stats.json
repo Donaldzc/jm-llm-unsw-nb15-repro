@@ -1,0 +1,42 @@
+{
+  "n_total": 257673,
+  "n_unique_feature_vectors": 153560,
+  "n_duplicate_rows": 104113,
+  "n_conflict_groups": 414,
+  "n_conflict_rows": 1758,
+  "n_conflict_rows_in_train_file": 1750,
+  "n_kept": 153146,
+  "kept_class_distribution": {
+    "0": 85184,
+    "1": 67962
+  },
+  "kept_attack_cat_distribution": {
+    "Normal": 85184,
+    "Exploits": 25806,
+    "Fuzzers": 18982,
+    "Reconnaissance": 8646,
+    "Generic": 7305,
+    "DoS": 4190,
+    "Shellcode": 1450,
+    "Analysis": 836,
+    "Backdoor": 583,
+    "Worms": 164
+  },
+  "protocol_a_test_rows_in_train_groups": 8073,
+  "protocol_a_test_coverage": 0.09805421950153038,
+  "protocol_a_test_size": 82332,
+  "protocol_b_test_rows_in_train_groups": 11732,
+  "protocol_b_test_coverage": 0.4552933871468488,
+  "protocol_b_test_size": 25768,
+  "protocol_c_size": 153146,
+  "protocol_c_split": {
+    "train": 122516,
+    "val": 15315,
+    "test": 15315
+  },
+  "protocol_c_class_distribution": {
+    "0": 85184,
+    "1": 67962
+  },
+  "protocol_c_test_rows_in_train_groups": 0
+}

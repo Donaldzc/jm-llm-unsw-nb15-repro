@@ -24,16 +24,18 @@ attention module can modulate the encoder with mode prototypes.
 The experiments report three findings, and the negative ones are reported as
 such:
 
-1. Under the random stratified split (protocol B) JM-LLM is the best of the seven
-   models in all five seeds, at 0.9343 ± 0.0013 test accuracy, but the same
-   encoder trained alone, with no graph and no Jordan branch, reaches
-   0.9337 ± 0.0015 — the difference is not resolved.
-2. Under the official file split (protocol A) the encoder alone is 2.03 points
-   *better* than the fusion, because the algebraic branch is itself at 0.44
-   accuracy and enters the average with weight one half.
+1. UNSW-NB15 is heavily duplicated. 104,113 of its 257,673 records repeat an
+   exact feature vector (40.4%), and 45.5% of the test rows of a naive random
+   split repeat a training vector. Protocol C therefore deduplicates first:
+   153,146 unique flows, stratified 80/10/10, zero test/train overlap.
+2. On protocol C JM-LLM is the best of the seven models at 0.9011 ± 0.0011 test
+   accuracy and 0.8997 ± 0.0012 macro-F1 with the lowest false-positive rate, but
+   its margin over a plain LSTM is 0.39 ± 0.51 points and five seeds do not
+   resolve it. The same encoder trained alone reaches 0.8963 ± 0.0066, i.e. the
+   fusion is inert under this protocol.
 3. The neighbourhood graph does carry information: permuting the target
    endpoints of the edges, while keeping out-degrees and weights, costs the
-   graph model 16.9 points under protocol A and 22.2 under protocol B.
+   graph model 16.9 points under protocol A, 22.2 under B and 18.6 under C.
 
 ## Requirements
 
@@ -70,9 +72,17 @@ Two protocols are used throughout:
 | --- | --- | --- |
 | A | official file split, 20% of the training file held out for validation | 140,272 / 35,069 / 82,332 |
 | B | stratified 80/10/10 over the pooled records, `random_state=42` | 206,138 / 25,767 / 25,768 |
+| C | exact-duplicate removal, then stratified 80/10/10, `random_state=42` | 122,516 / 15,315 / 15,315 |
 
-Protocol B is the primary comparison, because the two official files are not a
-random split of one capture (the manuscript quantifies this in Section 5.14).
+Protocol C is the primary comparison. Records are grouped by their exact
+194-dimensional feature vector, one record per group is kept, and a group is
+dropped entirely when its members carry conflicting labels (414 groups, 1,758
+records). The result is 153,146 flows with an attack share of 44.4%, against
+63.9% in the pooled corpus. Protocols B and A are retained as controls: 45.53% of
+the protocol-B test rows and 9.81% of the protocol-A test rows have an exact
+feature vector in their own training partition, against 0% for C. Because C also
+changes the class prior, cross-protocol comparisons are made on macro-F1 rather
+than on accuracy.
 
 ## Layout
 
@@ -99,14 +109,15 @@ python run_full_comparison.py --protocol random
 # Fig. 4: 40-point mode sweep (about 2 h on 24 threads)
 python run_n_sweep.py
 
-# Cache the seven models for one seed, then run any review experiment
-python experiments.py cache --protocol official --seed 1
+# Cache the seven models for one seed, then run any experiment
+python experiments.py dedup                       # protocol C statistics
+python experiments.py cache --protocol dedup --seed 1
 python experiments.py e1    --protocol official --seed 1
-python experiments.py e2    --protocol official --seeds 1 2 3 4 5
-python experiments.py e3    --protocol official --seeds 1 2 3 4 5
+python experiments.py e2    --protocol dedup  --seeds 1 2 3 4 5
+python experiments.py e3    --protocol dedup  --seeds 1 2 3 4 5
 python experiments.py e4
-python experiments.py e5    --protocol official --seeds 1 2 3 4 5
-python experiments.py e6    --protocol official --seeds 1 2 3 4 5
+python experiments.py e5    --protocol dedup  --seeds 1 2 3 4 5
+python experiments.py e6    --protocol dedup  --seeds 1 2 3 4 5
 python experiments.py e6-adv --protocol official --seed 42
 ```
 
@@ -121,6 +132,7 @@ retraining.
 
 | Command | Output | Purpose |
 | --- | --- | --- |
+| `dedup` | `dedup_stats.json` | Duplicate-group statistics and the test/train duplicate coverage of each protocol |
 | `e1` | `e1_per_class_*.csv`, `e1_attack_categories_*.csv`, `e1_confusion_*.csv` | Per-class precision/recall/F1/FPR/FNR and per-attack-category recall with support |
 | `e2` | `e2_per_seed_*.csv`, `e2_mean_std_*.csv`, `e2_paired_*.csv` | Five-seed means, standard deviations and paired t tests |
 | `e3` | `e3_attention_*.csv`, `e3_attention_*.json` | Mode-prototype attention on/off, paired over seeds, with parameter counts |
@@ -153,8 +165,10 @@ caveats (ARPACK restarts) are in `ENVIRONMENT.md`.
 4. The two branches are fused by an equal-weight average of probabilities with a
    validation-tuned decision threshold; the structural correction term is
    inactive (λ=0) in every reported run.
-5. Protocol B exists because the two release files differ in class prior and in
-   generating environment; Section 5.14 of the manuscript quantifies both.
+5. Protocol C exists because 40.4% of the corpus consists of exact duplicate
+   rows, and protocol B leaves 45.5% of its test rows open to duplicate leakage.
+   Protocol A additionally differs in class prior and in generating environment;
+   the manuscript quantifies both effects in Section 5.14.
 
 ## License
 
