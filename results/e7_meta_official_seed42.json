@@ -1,0 +1,28 @@
+{
+  "protocol": "official",
+  "seeds": [
+    42
+  ],
+  "xgboost": {
+    "version": "3.4.1",
+    "n_estimators": 3000,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "scale_pos_weight": 0.4692,
+    "early_stopping_rounds": 50
+  },
+  "lightgbm": {
+    "version": "4.7.0",
+    "n_estimators": 3000,
+    "num_leaves": 31,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "is_unbalance": true,
+    "early_stopping_rounds": 50
+  },
+  "threshold": 0.5
+}

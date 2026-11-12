@@ -9,8 +9,9 @@ Code, results and configuration for
 
 The package reproduces every number in the manuscript on a single CPU
 workstation. It is a pure-PyTorch implementation: it does not depend on
-`torch_geometric`, and the graph, the sparse spectral step and the seven models
-all run on the full 257,673-node UNSW-NB15 corpus without a GPU.
+`torch_geometric`, and the graph, the sparse spectral step and the nine models
+(the seven of the main comparison plus XGBoost and LightGBM) all run on the full
+257,673-node UNSW-NB15 corpus without a GPU.
 
 ## What the paper claims
 
@@ -28,12 +29,18 @@ such:
    exact feature vector (40.4%), and 45.5% of the test rows of a naive random
    split repeat a training vector. Protocol C therefore deduplicates first:
    153,146 unique flows, stratified 80/10/10, zero test/train overlap.
-2. On protocol C JM-LLM is the best of the seven models at 0.9011 ± 0.0011 test
-   accuracy and 0.8997 ± 0.0012 macro-F1 with the lowest false-positive rate, but
-   its margin over a plain LSTM is 0.39 ± 0.51 points and five seeds do not
+2. On protocol C two boosted-tree baselines that use no graph and no spectral
+   prior lead the nine-model comparison: XGBoost reaches 0.9239 ± 0.0007 test
+   accuracy and 0.9230 ± 0.0007 macro-F1, LightGBM 0.9220 ± 0.0010 and
+   0.9211 ± 0.0010. JM-LLM is third, at 0.9011 ± 0.0011 and 0.8997 ± 0.0012,
+   2.33 and 2.13 points of macro-F1 behind, with a higher false-positive rate.
+   Its margin over a plain LSTM is 0.39 ± 0.51 points and five seeds do not
    resolve it. The same encoder trained alone reaches 0.8963 ± 0.0066, i.e. the
    fusion is inert under this protocol.
-3. The neighbourhood graph does carry information: permuting the target
+3. The Jordan assignment is not a necessary ingredient: replacing it with
+   k-means, a Gaussian mixture or a size-matched random partition moves
+   macro-F1 by at most 0.11 points, and no paired test is significant.
+4. The neighbourhood graph does carry information: permuting the target
    endpoints of the edges, while keeping out-degrees and weights, costs the
    graph model 16.9 points under protocol A, 22.2 under B and 18.6 under C.
 
@@ -94,7 +101,7 @@ than on accuracy.
 | `normal_profile.py` | Normal-only autoencoder branch (optional, used in the earlier experiments) |
 | `run_full_comparison.py` | The seven-model comparison of Tables 1 and 2 |
 | `run_n_sweep.py` | The 40-point sweep over the retained mode count, Fig. 4 |
-| `experiments.py` | The five-seed experiments and controls: `cache`, `e1`–`e6`, `e6-adv` |
+| `experiments.py` | The five-seed experiments and controls: `cache`, `e1`–`e8`, `e6-adv` |
 | `results/` | Every CSV/JSON behind the tables and figures of the manuscript |
 | `figures/` | The mode-count and eigenvalue figures, as they appear in the paper |
 | `ENVIRONMENT.md` | Machine, package versions, measured runtimes, known numerical caveats |
@@ -119,6 +126,8 @@ python experiments.py e4
 python experiments.py e5    --protocol dedup  --seeds 1 2 3 4 5
 python experiments.py e6    --protocol dedup  --seeds 1 2 3 4 5
 python experiments.py e6-adv --protocol official --seed 42
+python experiments.py e7    --protocol dedup  --seeds 1 2 3 4 5   # GBDT baselines
+python experiments.py e8    --protocol dedup  --seeds 1 2 3 4 5   # prototype sources
 ```
 
 `cache` writes `experiments/cache_{protocol}_seed{n}.npz` and one

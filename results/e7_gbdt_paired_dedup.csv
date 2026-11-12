@@ -1,0 +1,13 @@
+﻿comparison,metric,mean_diff_pp,sd_diff_pp,t_stat,p_value,wins,n_seeds
+XGBoost minus JM-LLM,test_acc,2.2817,0.1631,31.2747,0.0,5,5
+XGBoost minus JM-LLM,macro_f1,2.3328,0.1724,30.2489,0.0,5,5
+XGBoost minus LSTM,test_acc,2.6695,0.5324,11.2127,0.0004,5,5
+XGBoost minus LSTM,macro_f1,2.694,0.5153,11.69,0.0003,5,5
+XGBoost minus Random-Forest-GNN,test_acc,4.5069,0.1782,56.5535,0.0,5,5
+XGBoost minus Random-Forest-GNN,macro_f1,4.5326,0.1786,56.7592,0.0,5,5
+LightGBM minus JM-LLM,test_acc,2.0877,0.1857,25.138,0.0,5,5
+LightGBM minus JM-LLM,macro_f1,2.1348,0.1986,24.0418,0.0,5,5
+LightGBM minus LSTM,test_acc,2.4755,0.4985,11.1033,0.0004,5,5
+LightGBM minus LSTM,macro_f1,2.496,0.4833,11.548,0.0003,5,5
+LightGBM minus Random-Forest-GNN,test_acc,4.3129,0.1891,50.9973,0.0,5,5
+LightGBM minus Random-Forest-GNN,macro_f1,4.3346,0.1921,50.4559,0.0,5,5

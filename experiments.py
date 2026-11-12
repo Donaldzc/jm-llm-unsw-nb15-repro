@@ -461,8 +461,14 @@ def mode_prototypes(X, trans_matrix, n_modes):
     return protos, assign
 
 
-def train_jmllm_attn(X_all, y, masks, jordan, seed=42, tau=0.5):
-    """JM-LLM with mode-guided attention instead of the plain MLP branch."""
+def train_jmllm_attn(X_all, y, masks, jordan, seed=42, tau=0.5,
+                     protos_override=None):
+    """JM-LLM with mode-guided attention instead of the plain MLP branch.
+
+    ``protos_override`` replaces the Jordan-derived prototypes with an
+    externally supplied set (used by the clustering controls of E8); every
+    other part of the pipeline is unchanged.
+    """
     import torch.nn.functional as F
     set_seed(seed)
     tr = np.where(masks["train"])[0]
@@ -470,8 +476,12 @@ def train_jmllm_attn(X_all, y, masks, jordan, seed=42, tau=0.5):
     X_tr, y_tr = X_all[tr], y[tr]
     y_tr_f = torch.tensor(y_tr, dtype=torch.float32).to(DEVICE)
     y_tr_l = torch.tensor(y_tr, dtype=torch.long).to(DEVICE)
-    protos_np, assign = mode_prototypes(X_all.cpu().numpy(), jordan.trans_matrix,
-                                        jordan.trans_matrix.shape[1])
+    if protos_override is None:
+        protos_np, _ = mode_prototypes(X_all.cpu().numpy(),
+                                       jordan.trans_matrix,
+                                       jordan.trans_matrix.shape[1])
+    else:
+        protos_np = np.asarray(protos_override, dtype=np.float32)
     protos = torch.tensor(protos_np, dtype=torch.float32).to(DEVICE)
 
     from models import JordanModel
@@ -543,6 +553,7 @@ def train_jmllm_attn(X_all, y, masks, jordan, seed=42, tau=0.5):
         res[f"{split}_acc"] = m["acc"]
         if split == "test":
             res["f1"] = m["macro_f1"]
+            res["test_fpr"] = 1 - m["normal_recall"]
     res.update({"threshold": thr, "sigma0": sigma0, "rounds": it})
     return res, p_all
 
@@ -1121,6 +1132,296 @@ def run_e6_adv(protocol="official", seed=42,
     return out
 
 
+# ---------------------------------------------------------------------------
+# E7: gradient-boosted tree baselines
+# ---------------------------------------------------------------------------
+def run_e7(protocol="dedup", seeds=(1, 2, 3, 4, 5), n_estimators=3000):
+    """XGBoost and LightGBM on the same split, metrics and seeds as E2.
+
+    The tree budget is large enough that early stopping, not the cap, ends
+    training; the cap is reported in the meta file with the best iteration.
+    """
+    from scipy import stats as st
+    from xgboost import XGBClassifier
+    from lightgbm import LGBMClassifier, early_stopping
+
+    X_all, y, cat, masks, _ = load_with_categories(protocol)
+    tr = np.where(masks["train"])[0]
+    va = np.where(masks["val"])[0]
+    te = np.where(masks["test"])[0]
+    Xtr, ytr = X_all[tr], y[tr]
+    spw = float((ytr == 0).sum()) / max(int((ytr == 1).sum()), 1)
+    print(f"{protocol}: train={len(tr)} val={len(va)} test={len(te)} "
+          f"scale_pos_weight={spw:.3f}", flush=True)
+
+    frames = []
+    for seed in seeds:
+        print(f"=== seed {seed} ===", flush=True)
+        t0 = time.time()
+        xgb = XGBClassifier(
+            n_estimators=n_estimators, max_depth=6, learning_rate=0.1,
+            subsample=0.8, colsample_bytree=0.8, min_child_weight=1,
+            tree_method="hist", scale_pos_weight=spw, random_state=seed,
+            n_jobs=8, eval_metric="logloss", early_stopping_rounds=50)
+        xgb.fit(Xtr, ytr, eval_set=[(X_all[va], y[va])], verbose=False)
+        p = xgb.predict_proba(X_all)[:, 1]
+        m = calc_metrics(y[te], (p[te] > 0.5).astype(int))
+        m_tr = calc_metrics(y[tr], (p[tr] > 0.5).astype(int))
+        m_va = calc_metrics(y[va], (p[va] > 0.5).astype(int))
+        frames.append({"seed": seed, "model": "XGBoost",
+                       "train_acc": m_tr["acc"], "val_acc": m_va["acc"],
+                       "test_acc": m["acc"], "macro_f1": m["macro_f1"],
+                       "fpr": 1 - m["normal_recall"],
+                       "best_iter": int(getattr(xgb, "best_iteration", 0) or 0),
+                       "seconds": time.time() - t0})
+        print(f"  [XGBoost] acc={m['acc']:.4f} f1={m['macro_f1']:.4f} "
+              f"({time.time() - t0:.0f}s)", flush=True)
+
+        t0 = time.time()
+        lgbm = LGBMClassifier(
+            n_estimators=n_estimators, num_leaves=31, learning_rate=0.1,
+            subsample=0.8, subsample_freq=1, colsample_bytree=0.8,
+            is_unbalance=True, random_state=seed, n_jobs=8, verbose=-1)
+        lgbm.fit(Xtr, ytr, eval_set=[(X_all[va], y[va])],
+                 callbacks=[early_stopping(50, verbose=False)])
+        p = lgbm.predict_proba(X_all)[:, 1]
+        m = calc_metrics(y[te], (p[te] > 0.5).astype(int))
+        m_tr = calc_metrics(y[tr], (p[tr] > 0.5).astype(int))
+        m_va = calc_metrics(y[va], (p[va] > 0.5).astype(int))
+        frames.append({"seed": seed, "model": "LightGBM",
+                       "train_acc": m_tr["acc"], "val_acc": m_va["acc"],
+                       "test_acc": m["acc"], "macro_f1": m["macro_f1"],
+                       "fpr": 1 - m["normal_recall"],
+                       "best_iter": int(getattr(lgbm, "best_iteration_", 0) or 0),
+                       "seconds": time.time() - t0})
+        print(f"  [LightGBM] acc={m['acc']:.4f} f1={m['macro_f1']:.4f} "
+              f"({time.time() - t0:.0f}s)", flush=True)
+
+    df = pd.DataFrame(frames).round(4)
+    # a single seed-42 run feeds the descriptive tables; keep its files apart
+    # from the five-seed files of panels (a) and (b)
+    tag = f"{protocol}_seed42" if list(seeds) == [42] else protocol
+    df.to_csv(OUT / f"e7_gbdt_per_seed_{tag}.csv", index=False,
+              encoding="utf-8-sig")
+
+    rows = []
+    for name in ("XGBoost", "LightGBM"):
+        sub = df[df["model"] == name]
+        rows.append({"model": name, "n_seeds": len(sub),
+                     "test_acc_mean": sub["test_acc"].mean(),
+                     "test_acc_std": sub["test_acc"].std(ddof=1),
+                     "macro_f1_mean": sub["macro_f1"].mean(),
+                     "macro_f1_std": sub["macro_f1"].std(ddof=1),
+                     "fpr_mean": sub["fpr"].mean(),
+                     "fpr_std": sub["fpr"].std(ddof=1)})
+    agg = pd.DataFrame(rows).round(4)
+    agg.to_csv(OUT / f"e7_gbdt_mean_std_{tag}.csv", index=False,
+               encoding="utf-8-sig")
+
+    # side-by-side with the seven models already reported for this protocol
+    ref = pd.read_csv(OUT / f"e2_mean_std_{protocol}.csv",
+                      encoding="utf-8-sig")
+    ref = ref[["model", "n_seeds", "test_acc_mean", "test_acc_std",
+               "macro_f1_mean", "macro_f1_std", "fpr_mean", "fpr_std"]]
+    combined = pd.concat([ref, agg], ignore_index=True)
+    combined = combined.sort_values("macro_f1_mean",
+                                    ascending=False).reset_index(drop=True)
+    combined.to_csv(OUT / f"e7_combined_{tag}.csv", index=False,
+                    encoding="utf-8-sig")
+
+    # paired comparisons against the models the claims are phrased against
+    paired = None
+    if len(seeds) == 5 and set(seeds) == {1, 2, 3, 4, 5}:
+        base = pd.read_csv(OUT / f"e2_per_seed_{protocol}.csv",
+                           encoding="utf-8-sig")
+        wide_acc = base.pivot(index="seed", columns="model", values="test_acc")
+        wide_f1 = base.pivot(index="seed", columns="model", values="macro_f1")
+        for name in ("XGBoost", "LightGBM"):
+            wide_acc[name] = df[df["model"] == name].set_index("seed")["test_acc"]
+            wide_f1[name] = df[df["model"] == name].set_index("seed")["macro_f1"]
+        p_rows = []
+        for name in ("XGBoost", "LightGBM"):
+            for other in ("JM-LLM", "LSTM", "Random-Forest-GNN"):
+                for metric, wide in (("test_acc", wide_acc),
+                                     ("macro_f1", wide_f1)):
+                    diff = wide[name] - wide[other]
+                    t = st.ttest_rel(wide[name], wide[other])
+                    p_rows.append({
+                        "comparison": f"{name} minus {other}",
+                        "metric": metric, "mean_diff_pp": diff.mean() * 100,
+                        "sd_diff_pp": diff.std(ddof=1) * 100,
+                        "t_stat": t.statistic, "p_value": t.pvalue,
+                        "wins": int((diff > 0).sum()), "n_seeds": len(diff)})
+        paired = pd.DataFrame(p_rows).round(4)
+        paired.to_csv(OUT / f"e7_gbdt_paired_{protocol}.csv", index=False,
+                      encoding="utf-8-sig")
+
+    import xgboost
+    import lightgbm
+    with open(OUT / f"e7_meta_{tag}.json", "w", encoding="utf-8") as f:
+        json.dump({"protocol": protocol, "seeds": list(seeds),
+                   "xgboost": {"version": xgboost.__version__,
+                               "n_estimators": n_estimators, "max_depth": 6,
+                               "learning_rate": 0.1, "subsample": 0.8,
+                               "colsample_bytree": 0.8,
+                               "scale_pos_weight": round(spw, 4),
+                               "early_stopping_rounds": 50},
+                   "lightgbm": {"version": lightgbm.__version__,
+                                "n_estimators": n_estimators,
+                                "num_leaves": 31, "learning_rate": 0.1,
+                                "subsample": 0.8, "subsample_freq": 1,
+                                "colsample_bytree": 0.8,
+                                "is_unbalance": True,
+                                "early_stopping_rounds": 50},
+                   "threshold": 0.5}, f, indent=2)
+
+    print(agg.to_string(index=False))
+    print(combined.to_string(index=False))
+    if paired is not None:
+        print(paired.to_string(index=False))
+    return combined
+
+
+# ---------------------------------------------------------------------------
+# E8: clustering controls for the Jordan mode assignment
+# ---------------------------------------------------------------------------
+def _protos_from_assignment(X, assign, n_modes):
+    """Mean input vector of the nodes assigned to each group (as Sec. 3.4)."""
+    protos = np.zeros((n_modes, X.shape[1]), dtype=np.float32)
+    gmean = X.mean(0)
+    for c in range(n_modes):
+        m = assign == c
+        protos[c] = X[m].mean(0) if m.any() else gmean
+    return protos
+
+
+def run_e8(protocol="dedup", seeds=(1, 2, 3, 4, 5)):
+    """Replace the Jordan mode assignment with k-means, GMM or a random one.
+
+    Every variant keeps the split, the encoder, the Jordan recurrent branch,
+    the equal-weight fusion, the validation-tuned threshold and the seed, so a
+    paired difference measures the prototype source alone.  The clustering is
+    fitted on the full 153{,}146-node corpus, as the spectral decomposition is.
+    """
+    from scipy import stats as st
+    from sklearn.cluster import MiniBatchKMeans
+    from sklearn.mixture import GaussianMixture
+
+    X_all, y, cat, masks, _ = load_with_categories(protocol)
+    adjacency, adj_t, jordan = graph_and_jordan(X_all)
+    X_t = torch.tensor(X_all, dtype=torch.float32).to(DEVICE)
+    n_modes = int(jordan.trans_matrix.shape[1])
+    Xn = np.asarray(X_all, dtype=np.float32)
+    _, jordan_assign = mode_prototypes(Xn, jordan.trans_matrix, n_modes)
+
+    t0 = time.time()
+    km = MiniBatchKMeans(n_clusters=n_modes, random_state=42, n_init=10,
+                         batch_size=4096, max_iter=300)
+    km_assign = km.fit_predict(Xn)
+    km_seconds = time.time() - t0
+    print(f"k-means fitted in {km_seconds:.0f}s", flush=True)
+
+    t0 = time.time()
+    gm = GaussianMixture(n_components=n_modes, covariance_type="diag",
+                         random_state=42, max_iter=50, reg_covar=1e-4,
+                         init_params="k-means++")
+    gmm_assign = gm.fit_predict(Xn)
+    gmm_seconds = time.time() - t0
+    print(f"GMM fitted in {gmm_seconds:.0f}s ({gm.n_iter_} iterations)",
+          flush=True)
+
+    protos = {"Jordan": None,
+              "k-means": _protos_from_assignment(Xn, km_assign, n_modes),
+              "GMM": _protos_from_assignment(Xn, gmm_assign, n_modes)}
+
+    frames, metas = [], {}
+    for seed in seeds:
+        for name in ("Jordan", "k-means", "GMM", "random"):
+            print(f"=== seed {seed} / {name} ===", flush=True)
+            if name == "random":
+                rng = np.random.default_rng(seed)
+                assign = rng.permutation(jordan_assign)
+                p = _protos_from_assignment(Xn, assign, n_modes)
+            else:
+                p = protos[name]
+            res, _ = train_jmllm_attn(X_t, y, masks, jordan, seed=seed,
+                                      protos_override=p)
+            frames.append({"seed": seed, "variant": name,
+                           "test_acc": res["test_acc"],
+                           "macro_f1": res["f1"],
+                           "fpr": res["test_fpr"],
+                           "threshold": res["threshold"],
+                           "rounds": res["rounds"]})
+            metas[f"{seed}_{name}"] = res
+    df = pd.DataFrame(frames).round(4)
+    df.to_csv(OUT / f"e8_cluster_per_seed_{protocol}.csv", index=False,
+              encoding="utf-8-sig")
+
+    rows = []
+    for name in ("Jordan", "k-means", "GMM", "random"):
+        sub = df[df["variant"] == name]
+        rows.append({"variant": name, "n_seeds": len(sub),
+                     "test_acc_mean": sub["test_acc"].mean(),
+                     "test_acc_std": sub["test_acc"].std(ddof=1),
+                     "macro_f1_mean": sub["macro_f1"].mean(),
+                     "macro_f1_std": sub["macro_f1"].std(ddof=1),
+                     "fpr_mean": sub["fpr"].mean(),
+                     "fpr_std": sub["fpr"].std(ddof=1)})
+    summary = pd.DataFrame(rows).round(4)
+    summary.to_csv(OUT / f"e8_cluster_ablation_{protocol}.csv", index=False,
+                   encoding="utf-8-sig")
+
+    wide_acc = df.pivot(index="seed", columns="variant", values="test_acc")
+    wide_f1 = df.pivot(index="seed", columns="variant", values="macro_f1")
+    p_rows = []
+    for name in ("k-means", "GMM", "random"):
+        for metric, wide in (("test_acc", wide_acc), ("macro_f1", wide_f1)):
+            diff = wide[name] - wide["Jordan"]
+            t = st.ttest_rel(wide[name], wide["Jordan"])
+            p_rows.append({
+                "comparison": f"{name} minus Jordan", "metric": metric,
+                "mean_diff_pp": diff.mean() * 100,
+                "sd_diff_pp": diff.std(ddof=1) * 100,
+                "t_stat": t.statistic, "p_value": t.pvalue,
+                "wins": int((diff > 0).sum()), "n_seeds": len(diff)})
+    paired = pd.DataFrame(p_rows).round(4)
+    paired.to_csv(OUT / f"e8_paired_{protocol}.csv", index=False,
+                  encoding="utf-8-sig")
+
+    ref = pd.read_csv(OUT / f"e2_mean_std_{protocol}.csv",
+                      encoding="utf-8-sig")
+    ref = ref[["model", "test_acc_mean", "test_acc_std", "macro_f1_mean",
+               "macro_f1_std", "fpr_mean", "fpr_std"]]
+    combined = pd.concat([ref, summary.rename(columns={"variant": "model"})[
+        ["model", "test_acc_mean", "test_acc_std", "macro_f1_mean",
+         "macro_f1_std", "fpr_mean", "fpr_std"]]], ignore_index=True)
+    combined = combined.sort_values("macro_f1_mean",
+                                    ascending=False).reset_index(drop=True)
+    combined.to_csv(OUT / f"e8_combined_{protocol}.csv", index=False,
+                    encoding="utf-8-sig")
+
+    with open(OUT / f"e8_meta_{protocol}.json", "w", encoding="utf-8") as f:
+        json.dump({"protocol": protocol, "n_modes": n_modes, "tau": 0.5,
+                   "seeds": list(seeds),
+                   "fit_on": "all rows of the protocol corpus",
+                   "kmeans_seconds": round(km_seconds, 1),
+                   "gmm_seconds": round(gmm_seconds, 1),
+                   "gmm_iterations": int(gm.n_iter_),
+                   "gmm_converged": bool(gm.converged_),
+                   "cluster_sizes": {
+                       "Jordan": np.bincount(jordan_assign,
+                                             minlength=n_modes).tolist(),
+                       "k-means": np.bincount(km_assign,
+                                              minlength=n_modes).tolist(),
+                       "GMM": np.bincount(gmm_assign,
+                                          minlength=n_modes).tolist()},
+                   "per_seed": metas}, f, indent=2)
+
+    print(summary.to_string(index=False))
+    print(paired.to_string(index=False))
+    return summary
+
+
 def run_dedup_stats():
     """Statistics for protocol C and the duplicate coverage of A and B."""
     X_all, y, cat, masks_a, n_tr = load_with_categories("official")
@@ -1182,7 +1483,8 @@ def run_dedup_stats():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["cache", "e1", "e1-jm", "e2", "e3",
-                                        "e4", "e5", "e6", "e6-adv", "dedup"])
+                                        "e4", "e5", "e6", "e6-adv", "dedup",
+                                        "e7", "e8"])
     ap.add_argument("--protocol", choices=["official", "random", "dedup"],
                     default="official")
     ap.add_argument("--seed", type=int, default=42)
@@ -1211,6 +1513,10 @@ def main():
         run_e6_adv(args.protocol, args.seed)
     elif args.command == "dedup":
         run_dedup_stats()
+    elif args.command == "e7":
+        run_e7(args.protocol, args.seeds)
+    elif args.command == "e8":
+        run_e8(args.protocol, args.seeds)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,8 @@ largest single cost is the k-nearest-neighbour graph over 257,673 records.
 | pandas | 3.1.1 |
 | scikit-learn | 1.9.1 |
 | Matplotlib | 3.11.2 |
+| XGBoost | 3.4.1 |
+| LightGBM | 4.7.0 |
 
 Installation:
 
@@ -94,11 +96,17 @@ Additional experiments:
 | `e5` controls, five seeds | about 20 min per protocol (seed 1 runs the full 120 epochs of the random-graph GNN; later seeds early-stop) |
 | `e6` false-positive cost | seconds (reads the cache) |
 | `e6-adv` evasion, both models | about 8 min |
+| `e7` XGBoost and LightGBM, five seeds | about 4 min per protocol (3000-tree cap, early stopping at 419–1152 trees) |
+| `e8` prototype sources, five seeds | about 20 min (graph 30 s, k-means 3 s, GMM 14 s, then 20 training runs) |
 
 Two notes on reproducibility. First, the truncated eigen-only branch is
 sensitive to the starting vector of ARPACK: repeated runs of `e4` vary between
 0.47 and 0.49 accuracy at a tuned threshold, and the fixed-threshold value used
-in Table 1 is stable at 0.44. Second, `eigs` does not converge on the full
+in Table 1 is stable at 0.44. The same sensitivity moves the Jordan-prototype
+reference of `e8` by about 0.24 points: for seed 1 it gives 0.9028, 0.9004 and
+0.9019 test accuracy in three independent decompositions. The four variants of
+`e8` therefore share one decomposition, which keeps their paired differences
+valid, but the absolute Jordan row moves within that band across runs. Second, `eigs` does not converge on the full
 257,673-node directed matrix, which is why the spectrum is computed on a
 1,500-node replica of the same construction; this is stated in the caption of
 the directed-spectrum table in Section 5.

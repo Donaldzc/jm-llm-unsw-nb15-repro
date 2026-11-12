@@ -1,0 +1,7 @@
+﻿comparison,metric,mean_diff_pp,sd_diff_pp,t_stat,p_value,wins,n_seeds
+k-means minus Jordan,test_acc,0.044,0.2471,0.3981,0.7109,3,5
+k-means minus Jordan,macro_f1,0.056,0.2316,0.5407,0.6174,3,5
+GMM minus Jordan,test_acc,0.032,0.1496,0.4784,0.6573,3,5
+GMM minus Jordan,macro_f1,0.05,0.121,0.9237,0.4079,3,5
+random minus Jordan,test_acc,-0.122,0.1596,-1.7093,0.1626,1,5
+random minus Jordan,macro_f1,-0.11,0.1416,-1.7371,0.1574,1,5

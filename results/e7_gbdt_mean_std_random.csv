@@ -1,0 +1,3 @@
+﻿model,n_seeds,test_acc_mean,test_acc_std,macro_f1_mean,macro_f1_std,fpr_mean,fpr_std
+XGBoost,5,0.9526,0.0006,0.9493,0.0006,0.0322,0.0009
+LightGBM,5,0.9526,0.0004,0.9493,0.0004,0.0316,0.0015

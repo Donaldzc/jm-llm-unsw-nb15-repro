@@ -4,9 +4,10 @@ title: "JM-LLM: reproduction package"
 abstract: >-
   Reproduction code and results for a Jordan-matrix and encoder collaboration
   model for cyber threat prediction on UNSW-NB15, including the five-seed
-  comparison, the mode-guided attention ablation, the directed-spectrum
-  analysis, the false-positive cost analysis, the evasion analysis and the
-  graph and capacity controls.
+  comparison over nine models, the mode-guided attention ablation, the
+  prototype-source substitution, the directed-spectrum analysis, the
+  false-positive cost analysis, the evasion analysis and the graph and
+  capacity controls.
 authors:
   - family-names: Dai
     given-names: Zicheng
@@ -15,7 +16,6 @@ authors:
   - family-names: Han
     given-names: Lansheng
     affiliation: "School of Cyberspace Security, Huazhong University of Science and Technology"
-    email: 1998010309@hust.edu.cn
   - family-names: Zhu
     given-names: Dongjun
     affiliation: "School of Cyberspace Security, Huazhong University of Science and Technology"
